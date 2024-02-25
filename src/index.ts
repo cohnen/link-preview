@@ -121,6 +121,7 @@ type Metadata = {
   description?: string | null;
   url?: string | null;
   image?: string | null;
+  icon?: string | null; // Added this line
   charset?: string | null;
   error?: string | null;
 };
@@ -139,7 +140,7 @@ async function extractMetadata(query: string): Promise<Metadata> {
     accept: "text/html,application/xhtml+xml",
     // When declared as Bot, some sites generously return prerendered metadata for preview (e.g. Twitter)
     "user-agent": `LinkPreviewBot/${version}`,
-    "accept-language": "ja-JP",
+    "accept-language": "en-US,en;q=0.9",
   };
   const res = await fetch(query, {
     redirect: "follow",
@@ -201,7 +202,22 @@ async function extractMetadata(query: string): Promise<Metadata> {
     }
   }
 
-  return { title, description, url, image, charset: detectedCharset };
+  // Extract favicon
+  let icon: string | null = null;
+  const faviconLink = parsed.querySelector('link[rel="icon"]') || parsed.querySelector('link[rel="shortcut icon"]');
+  if (faviconLink) {
+    const faviconHref = faviconLink.getAttribute("href");
+    if (faviconHref) {
+      if (faviconHref.startsWith("http://") || faviconHref.startsWith("https://")) {
+        icon = faviconHref;
+      } else {
+        // Resolve relative URL to absolute
+        icon = new URL(faviconHref, query).href;
+      }
+    }
+  }
+
+  return { title, description, url, image, icon, charset: detectedCharset };
 }
 
 function detectCharset(
