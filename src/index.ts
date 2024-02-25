@@ -139,7 +139,8 @@ async function extractMetadata(query: string): Promise<Metadata> {
   const headers = {
     accept: "text/html,application/xhtml+xml",
     // When declared as Bot, some sites generously return prerendered metadata for preview (e.g. Twitter)
-    "user-agent": `LinkPreviewBot/${version}`,
+    //"user-agent": `LinkPreviewBot/${version}`,
+    "user-agent": `WhatsApp/${version}`,
     "accept-language": "en-US,en;q=0.9",
   };
   const res = await fetch(query, {
