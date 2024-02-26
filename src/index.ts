@@ -7,7 +7,7 @@
 import { version } from "../package.json";
 import { HTMLElement, parse } from "node-html-parser";
 
-export interface Env {}
+export interface Env { }
 
 function dbg(...message: any[]) {
   console.info("[✌ link-preview] ", ...message);
@@ -22,6 +22,9 @@ export default {
     const reqUrl = new URL(request.url);
     const origin = request.headers.get("Origin") || "*";
 
+    // get accept-language
+    const acceptLanguage = request.headers.get("accept-language") || "en-US,en;q=0.9";
+
     if (request.method === "OPTIONS") {
       // Handle (accept) preflight requests from web browsers
       return handleOptions(request, origin);
@@ -30,7 +33,7 @@ export default {
       if (query) {
         // Primary feature: Return website's metadata for preview
         try {
-          const md = await extractMetadata(query);
+          const md = await extractMetadata(query, acceptLanguage);
           return new Response(JSON.stringify(md), {
             headers: withMonthLongCache(
               withCorsHeaders(origin, {
@@ -45,7 +48,7 @@ export default {
         const twitterUserName = reqUrl.searchParams.get("tw-profile-icon");
         if (twitterUserName) {
           // Hidden feature: Directly return Twitter profile image (and cache)
-          return handleGetTwitterProfileImage(twitterUserName, origin);
+          return handleGetTwitterProfileImage(twitterUserName, origin, acceptLanguage);
         } else {
           return handleError(400, "Bad Request", origin);
         }
@@ -85,10 +88,11 @@ const subrequestCacheBehavior = {
 
 async function handleGetTwitterProfileImage(
   twitterUserName: string,
-  origin: string
+  origin: string,
+  acceptLanguage: string
 ): Promise<Response> {
   const url = `https://twitter.com/${twitterUserName}`;
-  const md = await extractMetadata(url);
+  const md = await extractMetadata(url, acceptLanguage);
   // Profile page has profile image URL as metadata
   if (md.image) {
     const res = await fetch(md.image, {
@@ -136,13 +140,13 @@ function logSubrequest(res: Response) {
   dbg(`Subrequest headers:\n${loggedHeaders}`);
 }
 
-async function extractMetadata(query: string): Promise<Metadata> {
+async function extractMetadata(query: string, acceptLanguage: string): Promise<Metadata> {
   const headers = {
     accept: "text/html,application/xhtml+xml",
     // When declared as Bot, some sites generously return prerendered metadata for preview (e.g. Twitter)
     //"user-agent": `LinkPreviewBot/${version}`,
     "user-agent": `WhatsApp/${version}`,
-    "accept-language": "en-US,en;q=0.9",
+    "accept-language": acceptLanguage,
   };
   const res = await fetch(query, {
     redirect: "follow",
@@ -222,10 +226,10 @@ function detectCharset(
   const headerContentType = headers.get("content-type");
   const headerCharset = headerContentType?.includes("charset=")
     ? headerContentType
-        .split("charset=")[1]
-        .toLowerCase()
-        .replace(/^["']/, "")
-        .replace(/["']$/, "")
+      .split("charset=")[1]
+      .toLowerCase()
+      .replace(/^["']/, "")
+      .replace(/["']$/, "")
     : undefined;
 
   let bodyCharset = parsed
