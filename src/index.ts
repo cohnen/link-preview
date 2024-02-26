@@ -124,6 +124,7 @@ type Metadata = {
   icon?: string | null; // Added this line
   charset?: string | null;
   error?: string | null;
+  siteName?: string;
 };
 
 function logSubrequest(res: Response) {
@@ -174,33 +175,30 @@ async function extractMetadata(query: string): Promise<Metadata> {
     $('meta[property="twitter:description"]')?.getAttribute("content") ||
     $('meta[name="description"]')?.getAttribute("content");
 
+  const resolveRelativeUrl = (url: string, baseHref: string = query) => {
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      return url;
+    } else {
+      return new URL(url, baseHref).href;
+    }
+  }
+
   let url = query;
   const canonicalUrl =
     $('link[rel="canonical"]')?.getAttribute("href") ||
     $('meta[property="og:url"]')?.getAttribute("content");
   if (canonicalUrl) {
-    if (
-      canonicalUrl?.startsWith("https://") ||
-      canonicalUrl?.startsWith("http://")
-    ) {
-      url = canonicalUrl;
-    } else {
-      // Resolve relative URL
-      url = new URL(canonicalUrl, query).href;
-    }
+    url = resolveRelativeUrl(canonicalUrl);
   }
+
+  const baseHref = canonicalUrl || query;
 
   let image;
   const ogpImage =
     $('meta[property="og:image"]')?.getAttribute("content") ||
     $('meta[property="twitter:image"]')?.getAttribute("content");
   if (ogpImage) {
-    if (ogpImage?.startsWith("https://") || ogpImage?.startsWith("http://")) {
-      image = ogpImage;
-    } else {
-      // Resolve relative URL
-      image = new URL(ogpImage, query).href;
-    }
+    image = resolveRelativeUrl(ogpImage, baseHref);
   }
 
   // Extract favicon
@@ -209,16 +207,12 @@ async function extractMetadata(query: string): Promise<Metadata> {
   if (faviconLink) {
     const faviconHref = faviconLink.getAttribute("href");
     if (faviconHref) {
-      if (faviconHref.startsWith("http://") || faviconHref.startsWith("https://")) {
-        icon = faviconHref;
-      } else {
-        // Resolve relative URL to absolute
-        icon = new URL(faviconHref, query).href;
-      }
+      icon = resolveRelativeUrl(faviconHref, baseHref);
     }
   }
+  const siteName = $('meta[property="og:site_name"]')?.getAttribute("content");
 
-  return { title, description, url, image, icon, charset: detectedCharset };
+  return { title, description, url, image, icon, charset: detectedCharset, siteName };
 }
 
 function detectCharset(
